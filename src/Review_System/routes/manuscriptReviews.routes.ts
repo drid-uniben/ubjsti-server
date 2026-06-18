@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 const router = Router();
 
-const adminRateLimiter = rateLimiter(2000, 60 * 60 * 1000);
+const adminRateLimiter = rateLimiter(5000, 60 * 60 * 1000);
 
 const manuscriptReviewsQuerySchema = z.object({
   query: z.object({
@@ -27,7 +27,10 @@ const manuscriptIdSchema = z.object({
   params: z.object({
     manuscriptId: z
       .string()
-      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid manuscript ID format. Manuscript ID must be a 24-character hexadecimal string.'),
+      .regex(
+        /^[0-9a-fA-F]{24}$/,
+        'Invalid manuscript ID format. Manuscript ID must be a 24-character hexadecimal string.'
+      ),
   }),
 });
 

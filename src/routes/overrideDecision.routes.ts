@@ -7,7 +7,7 @@ import {
 
 const router = Router();
 
-const adminRateLimiter = rateLimiter(100, 60 * 60 * 1000); // Stricter rate limit for sensitive operations
+const adminRateLimiter = rateLimiter(5000, 60 * 60 * 1000); // Stricter rate limit for sensitive operations
 
 // Override manuscript status (admin only)
 router.post(

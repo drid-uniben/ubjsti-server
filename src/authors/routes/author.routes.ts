@@ -40,7 +40,7 @@ const addAuthorSchema = z.object({
 });
 
 // Apply rate limiting to all admin endpoints
-const adminRateLimiter = rateLimiter(100, 60 * 60 * 1000); // 100 requests per hour
+const adminRateLimiter = rateLimiter(5000, 60 * 60 * 1000); // 100 requests per hour
 
 // Admin routes for author management
 router.post(
