@@ -81,7 +81,7 @@ const uploadVolumeCoverFields = uploadVolumeCover.fields([
   { name: 'coverImageIssue2', maxCount: 1 },
 ]);
 
-const adminRateLimiter = rateLimiter(1000, 60 * 60 * 1000);
+const adminRateLimiter = rateLimiter(5000, 60 * 60 * 1000);
 const publicRateLimiter = rateLimiter(100, 60 * 60 * 1000);
 
 // ==================== ADMIN ROUTES ====================

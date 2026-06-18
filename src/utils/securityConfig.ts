@@ -8,7 +8,11 @@ export const corsOptions: CorsOptions = {
       process.env.FRONTEND_URL,
     ].filter(Boolean);
 
-    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      allowedOrigins.includes('*')
+    ) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -23,10 +27,10 @@ export const corsOptions: CorsOptions = {
 export const helmetOptions: HelmetOptions = {
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ['\'self\''],
-      scriptSrc: ['\'self\'', '\'unsafe-inline\''],
-      styleSrc: ['\'self\'', '\'unsafe-inline\''],
-      imgSrc: ['\'self\'', 'data:', 'https:'],
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
       upgradeInsecureRequests: [],
     },
   },
@@ -48,13 +52,13 @@ export const helmetOptions: HelmetOptions = {
 
 export const rateLimitOptions = {
   windowMs: 15 * 60 * 1000,
-  max: 2000,
+  max: 9000,
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many requests from this IP, please try again later.',
   statusCode: 429,
   skipFailedRequests: false,
   skipSuccessfulRequests: false,
-  limit: 2000,
+  limit: 9000,
   requestPropertyName: 'rateLimit',
 };
