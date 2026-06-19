@@ -5,11 +5,13 @@ export enum ManuscriptStatus {
   SUBMITTED = 'submitted',
   UNDER_REVIEW = 'under_review',
   IN_RECONCILIATION = 'in_reconciliation',
+  REVIEW_COMMUNICATED = 'review_communicated',
   APPROVED = 'approved',
   REJECTED = 'rejected',
   MINOR_REVISION = 'minor_revision',
   MAJOR_REVISION = 'major_revision',
   REVISED = 'revised',
+  SUPERSEDED = 'superseded',
 }
 
 // Review decision types
@@ -49,6 +51,9 @@ export interface IManuscript extends Document {
 
   // Revision Tracking
   revisedFrom?: Types.ObjectId;
+  revisionAllowed?: boolean;
+  reviewersForRevision?: Types.ObjectId[];
+  supersededBy?: Types.ObjectId;
 
   isArchived?: boolean; // New field for archiving
   archiveReason?: string; // New field for archiving/unarchiving comments
@@ -173,6 +178,20 @@ const ManuscriptSchema: Schema<IManuscript> = new Schema(
 
     // Revision Tracking
     revisedFrom: {
+      type: Schema.Types.ObjectId,
+      ref: 'Manuscript',
+    },
+    revisionAllowed: {
+      type: Boolean,
+      default: false,
+    },
+    reviewersForRevision: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    supersededBy: {
       type: Schema.Types.ObjectId,
       ref: 'Manuscript',
     },

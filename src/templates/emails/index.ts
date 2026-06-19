@@ -12,7 +12,7 @@ import { authorInvitationTemplate } from './authorInvitation.template';
 import { authorCredentialsTemplate } from './authorCredentials.template';
 import { subscriptionConfirmationTemplate } from './subscriptionConfirmation.template';
 import { newArticleNotificationTemplate } from './newArticleNotification.template';
-
+import { reviewCommunicatedTemplate } from './reviewCommunicated.template';
 // Export all templates
 export {
   manuscriptStatusUpdateTemplate,
@@ -28,4 +28,5 @@ export {
   authorCredentialsTemplate,
   subscriptionConfirmationTemplate,
   newArticleNotificationTemplate,
+  reviewCommunicatedTemplate,
 };

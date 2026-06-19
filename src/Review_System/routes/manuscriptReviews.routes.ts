@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import manuscriptReviewsController from '../controllers/manuscriptReviews.controller';
+import sendReviewController from '../controllers/sendReview.controller';
 import {
   authenticateAdminToken,
   rateLimiter,
@@ -34,6 +35,19 @@ const manuscriptIdSchema = z.object({
   }),
 });
 
+const sendReviewSchema = z.object({
+  params: z.object({
+    manuscriptId: z
+      .string()
+      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid manuscript ID format'),
+  }),
+  body: z.object({
+    allowRevision: z.boolean(),
+    commentsForAuthor: z.string().optional(),
+    reviewerIds: z.array(z.string().regex(/^[0-9a-fA-F]{24}$/)).optional(),
+  }),
+});
+
 router.get(
   '/',
   authenticateAdminToken,
@@ -55,6 +69,14 @@ router.get(
   adminRateLimiter,
   validateRequest(manuscriptIdSchema),
   manuscriptReviewsController.getManuscriptReviewDetails
+);
+
+router.post(
+  '/:manuscriptId/send-review',
+  authenticateAdminToken,
+  adminRateLimiter,
+  validateRequest(sendReviewSchema),
+  sendReviewController.sendReviewToAuthor
 );
 
 export default router;
