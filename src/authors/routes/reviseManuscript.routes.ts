@@ -1,5 +1,7 @@
 import { Router, Request } from 'express';
 import reviseController from '../controllers/reviseManuscript.controller';
+import submitRevisionController from '../controllers/submitRevision.controller';
+import { authenticateAuthorToken } from '../../middleware/auth.middleware';
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import { z } from 'zod';
@@ -8,7 +10,7 @@ import validateRequest from '../../middleware/validateRequest';
 const getUploadsPath = (): string => {
   if (process.env.NODE_ENV === 'production') {
     // Go up to dist/ and then to uploads/documents
-    return path.join(__dirname, '..', '..' ,'uploads', 'documents');
+    return path.join(__dirname, '..', '..', 'uploads', 'documents');
   } else {
     // In development, use the existing path
     return path.join(process.cwd(), 'src', 'uploads', 'documents');
@@ -45,7 +47,10 @@ const fileFilter = (
   file: Express.Multer.File,
   cb: FileFilterCallback
 ) => {
-  if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+  if (
+    file.mimetype ===
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
     cb(null, true);
   } else {
     cb(new Error('Invalid file type. Only DOCX files are allowed.'));
@@ -73,13 +78,17 @@ const reviseManuscriptSchema = z.object({
       affiliation: z.string().min(1, 'Submitter affiliation is required'),
       orcid: z.string().optional(),
     }),
-    coAuthors: z.array(z.object({
-      name: z.string().min(1, 'Co-author name is required'),
-      email: z.string().email('Invalid co-author email'),
-      faculty: z.string().min(1, 'Co-author faculty is required'),
-      affiliation: z.string().min(1, 'Co-author affiliation is required'),
-      orcid: z.string().optional(),
-    })).optional(),
+    coAuthors: z
+      .array(
+        z.object({
+          name: z.string().min(1, 'Co-author name is required'),
+          email: z.string().email('Invalid co-author email'),
+          faculty: z.string().min(1, 'Co-author faculty is required'),
+          affiliation: z.string().min(1, 'Co-author affiliation is required'),
+          orcid: z.string().optional(),
+        })
+      )
+      .optional(),
   }),
 });
 
@@ -91,6 +100,13 @@ router.post(
   parseManuscriptRequest,
   validateRequest(reviseManuscriptSchema),
   reviseController.reviseManuscript
+);
+
+router.post(
+  '/:id/submit-revision',
+  authenticateAuthorToken,
+  upload.single('manuscriptFile'),
+  submitRevisionController.submitPostReviewRevision
 );
 
 export default router;

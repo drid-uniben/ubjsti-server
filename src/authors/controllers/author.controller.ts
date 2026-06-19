@@ -55,6 +55,8 @@ class AuthorController {
         })
         .populate('submitter', 'name email')
         .populate('incompleteCoAuthors', 'name email faculty affiliation orcid')
+        .populate('revisedFrom', 'title status createdAt')
+        .populate('supersededBy', 'title status createdAt')
         .lean();
 
       // Calculate statistics
@@ -63,11 +65,13 @@ class AuthorController {
         submitted: 0,
         under_review: 0,
         in_reconciliation: 0,
+        review_communicated: 0,
         approved: 0,
         rejected: 0,
         minor_revision: 0,
         major_revision: 0,
         revised: 0,
+        superseded: 0,
       };
 
       // Count manuscripts by status
@@ -109,6 +113,8 @@ class AuthorController {
       const manuscript = await Manuscript.findById(manuscriptId)
         .populate('submitter coAuthors', 'name email affiliation orcid')
         .populate('incompleteCoAuthors', 'name email faculty affiliation orcid')
+        .populate('revisedFrom', 'title status createdAt')
+        .populate('supersededBy', 'title status createdAt')
         .lean();
 
       if (!manuscript) {
@@ -381,7 +387,9 @@ class AuthorController {
         status: invitation.invitationStatus,
         created: invitation.createdAt.toISOString().split('T')[0],
         assignedFaculty: invitation.assignedFaculty ?? null,
-        expires: invitation.inviteTokenExpires ? invitation.inviteTokenExpires.toISOString().split('T')[0] : null,
+        expires: invitation.inviteTokenExpires
+          ? invitation.inviteTokenExpires.toISOString().split('T')[0]
+          : null,
       }));
 
       logger.info(`Admin ${user._id} retrieved author invitations list`);

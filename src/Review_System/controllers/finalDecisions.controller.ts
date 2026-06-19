@@ -52,6 +52,9 @@ class DecisionsController {
         {
           $match: {
             $or: [
+              // NEW: review already communicated — admin can finalize regardless of revision status
+              { status: ManuscriptStatus.REVIEW_COMMUNICATED },
+
               // Manuscripts with a completed reconciliation review
               {
                 status: ManuscriptStatus.UNDER_REVIEW,
