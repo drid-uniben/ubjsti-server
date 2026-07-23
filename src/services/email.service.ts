@@ -16,6 +16,7 @@ import {
   authorCredentialsTemplate,
   subscriptionConfirmationTemplate,
   newArticleNotificationTemplate,
+  reviewCommunicatedTemplate,
 } from '../templates/emails';
 
 validateEnv();
@@ -424,6 +425,35 @@ class EmailService {
     } catch (error) {
       logger.error(
         'Failed to send dynamic email:',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+      throw error;
+    }
+  }
+
+  async sendReviewCommunicatedEmail(
+    to: string,
+    name: string,
+    manuscriptTitle: string,
+    allowRevision: boolean
+  ): Promise<void> {
+    const loginUrl = `${this.frontendUrl}/author/login`;
+    try {
+      await this.transporter.sendMail({
+        from: this.emailFrom,
+        to,
+        subject: `Review Available for "${manuscriptTitle}"`,
+        html: reviewCommunicatedTemplate(
+          name,
+          manuscriptTitle,
+          loginUrl,
+          allowRevision
+        ),
+      });
+      logger.info(`Review communicated email sent to: ${to}`);
+    } catch (error) {
+      logger.error(
+        'Failed to send review communicated email:',
         error instanceof Error ? error.message : 'Unknown error'
       );
       throw error;

@@ -53,7 +53,8 @@ class ReviewController {
         reviewer: reviewerId,
       }).populate({
         path: 'manuscript',
-        select: 'title abstract keywords pdfFile',
+        select:
+          'title abstract keywords pdfFile revisedPdfFile revisionType revisedFrom',
       });
 
       if (!review) {
@@ -187,7 +188,8 @@ class ReviewController {
         reviewer: reviewerId,
       }).populate({
         path: 'manuscript',
-        select: 'title abstract keywords pdfFile revisedPdfFile revisionType',
+        select:
+          'title abstract keywords pdfFile revisedPdfFile revisionType revisedFrom',
       });
 
       if (!review) {
@@ -198,10 +200,20 @@ class ReviewController {
       if (manuscript.isArchived) {
         throw new NotFoundError('Manuscript not found or is archived');
       }
+
+      const isRevised = !!manuscript.revisedPdfFile || !!manuscript.revisedFrom;
       let previousReview = null;
 
       // If this is a revised manuscript, get the reviewer's previous review
-      if (manuscript.revisedPdfFile) {
+      if (manuscript.revisedFrom) {
+        // new flow: previous review lives on the original manuscript record
+        previousReview = await Review.findOne({
+          manuscript: manuscript.revisedFrom,
+          reviewer: reviewerId,
+          status: ReviewStatus.COMPLETED,
+        }).select('scores totalScore comments reviewDecision completedAt');
+      } else if (manuscript.revisedPdfFile) {
+        // legacy in-place revision flow
         previousReview = await Review.findOne({
           manuscript: manuscript._id,
           reviewer: reviewerId,
@@ -215,7 +227,7 @@ class ReviewController {
         data: {
           review,
           previousReview,
-          isRevised: !!manuscript.revisedPdfFile,
+          isRevised,
           revisionType: manuscript.revisionType,
         },
       });

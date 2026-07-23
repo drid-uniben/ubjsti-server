@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
-import { Response } from 'express';
+import { CookieOptions, Response } from 'express';
 import { UnauthorizedError } from '../utils/customErrors';
 import validateEnv from '../utils/validateEnv';
 import logger from '../utils/logger';
@@ -136,24 +136,32 @@ class TokenService {
     return tokens;
   }
 
-  setRefreshTokenCookie(res: Response, token: string): void {
+  // Host-only by default: the cookie is scoped to this API's own host, which is
+  // the only host that ever reads it. Set COOKIE_DOMAIN only when the API and
+  // frontend are subdomains of one parent you own (e.g. 'ubjsti.ng').
+  private refreshCookieOptions(): CookieOptions {
     const isProduction = process.env.NODE_ENV === 'production';
-    const frontendDomain = new URL(
-      process.env.FRONTEND_URL || 'http://localhost:3001'
-    ).hostname;
+    const cookieDomain = process.env.COOKIE_DOMAIN;
 
-    res.cookie('refreshToken', token, {
+    return {
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/',
-      domain: frontendDomain === 'localhost' ? undefined : frontendDomain,
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+    };
+  }
+
+  setRefreshTokenCookie(res: Response, token: string): void {
+    res.cookie('refreshToken', token, {
+      ...this.refreshCookieOptions(),
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
   }
 
   clearRefreshTokenCookie(res: Response): void {
-    res.clearCookie('refreshToken');
+    // Attributes must mirror the set call, or the browser rejects the deletion.
+    res.clearCookie('refreshToken', this.refreshCookieOptions());
   }
 }
 

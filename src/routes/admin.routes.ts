@@ -144,7 +144,7 @@ const emailAttachmentUpload = multer({
   },
 });
 
-const adminRateLimiter = rateLimiter(2000, 60 * 60 * 1000);
+const adminRateLimiter = rateLimiter(5000, 60 * 60 * 1000);
 
 router.get(
   '/manuscripts',
