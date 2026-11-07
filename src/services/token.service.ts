@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import { CookieOptions, Response } from 'express';
 import { UnauthorizedError } from '../utils/customErrors';
 import validateEnv from '../utils/validateEnv';
@@ -10,6 +11,9 @@ validateEnv();
 interface BlacklistedTokenDocument extends mongoose.Document {
   token: string;
   expiresAt: Date;
+  // Only set when the token was retired by rotation (logout leaves them empty).
+  rotatedAt?: Date;
+  replacedBy?: string;
 }
 
 const BlacklistedTokenSchema = new mongoose.Schema<BlacklistedTokenDocument>({
@@ -23,6 +27,12 @@ const BlacklistedTokenSchema = new mongoose.Schema<BlacklistedTokenDocument>({
     required: true,
     expires: 0,
   },
+  rotatedAt: {
+    type: Date,
+  },
+  replacedBy: {
+    type: String,
+  },
 });
 
 const BlacklistedToken = mongoose.model<BlacklistedTokenDocument>(
@@ -30,6 +40,22 @@ const BlacklistedToken = mongoose.model<BlacklistedTokenDocument>(
   BlacklistedTokenSchema,
   'BlacklistedTokens'
 );
+
+// A refresh token that was just rotated stays usable for a short window. Two
+// requests (or two browser tabs) that send the same cookie at the same moment
+// then both succeed, instead of the slower one being logged out. Tokens retired
+// by logout have no `replacedBy`, so they are never covered by the grace window.
+// Override the default of 30 seconds with REFRESH_GRACE_SECONDS.
+const ROTATION_GRACE_MS =
+  (Number(process.env.REFRESH_GRACE_SECONDS) || 30) * 1000;
+
+const isWithinGrace = (entry: {
+  rotatedAt?: Date;
+  replacedBy?: string;
+}): boolean =>
+  !!entry.replacedBy &&
+  !!entry.rotatedAt &&
+  Date.now() - entry.rotatedAt.getTime() < ROTATION_GRACE_MS;
 
 export interface TokenPayload {
   userId: string;
@@ -72,6 +98,9 @@ class TokenService {
     const refreshToken = jwt.sign(
       {
         ...payload,
+        // Unique per token. Without it, two tokens minted in the same second
+        // are identical strings, and rotating one would blacklist the other.
+        jti: randomUUID(),
         iat: now,
         exp: now + 7 * 24 * 60 * 60, // 7 days
       },
@@ -93,8 +122,10 @@ class TokenService {
   async verifyRefreshToken(token: string): Promise<TokenPayload> {
     try {
       logger.info('Verifying refresh token:', `${token.substring(0, 8)}...`);
-      const isBlacklisted = await BlacklistedToken.exists({ token });
-      if (isBlacklisted) {
+      const revoked = await BlacklistedToken.findOne({ token })
+        .select('rotatedAt replacedBy')
+        .lean();
+      if (revoked && !isWithinGrace(revoked)) {
         logger.error('Token is blacklisted');
         throw new UnauthorizedError('Token has been revoked');
       }
@@ -127,13 +158,51 @@ class TokenService {
   ): Promise<GeneratedTokens> {
     const tokens = this.generateTokens(payload);
 
-    // Blacklist old token
-    const decoded = jwt.decode(oldToken) as TokenPayload;
-    if (decoded?.exp) {
-      await this.blacklistToken(oldToken, new Date(decoded.exp * 1000));
+    const decoded = jwt.decode(oldToken) as TokenPayload | null;
+    if (!decoded?.exp) {
+      return tokens;
     }
 
-    return tokens;
+    // Claim the old token atomically. Only the first caller inserts the row.
+    // A concurrent caller gets that row back (or a duplicate-key error when both
+    // upserts raced) and shares the first caller's new refresh token.
+    type RotationEntry = { rotatedAt?: Date; replacedBy?: string };
+    let existing: RotationEntry | null;
+    try {
+      existing = (await BlacklistedToken.findOneAndUpdate(
+        { token: oldToken },
+        {
+          $setOnInsert: {
+            expiresAt: new Date(decoded.exp * 1000),
+            rotatedAt: new Date(),
+            replacedBy: tokens.refreshToken,
+          },
+        },
+        { upsert: true, new: false }
+      ).lean()) as RotationEntry | null;
+    } catch (error) {
+      if ((error as { code?: number }).code !== 11000) {
+        throw error;
+      }
+      existing = (await BlacklistedToken.findOne({
+        token: oldToken,
+      }).lean()) as RotationEntry | null;
+    }
+
+    if (!existing) {
+      return tokens; // this call won the race
+    }
+
+    if (isWithinGrace(existing)) {
+      // Already rotated a moment ago: hand back the same new refresh token and
+      // only mint a fresh access token.
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: existing.replacedBy as string,
+      };
+    }
+
+    throw new UnauthorizedError('Token has been revoked');
   }
 
   // Host-only by default: the cookie is scoped to this API's own host, which is
