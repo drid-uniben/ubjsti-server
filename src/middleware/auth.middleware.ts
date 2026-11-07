@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { UnauthorizedError, ForbiddenError } from '../utils/customErrors';
+import {
+  UnauthorizedError,
+  ForbiddenError,
+  RateLimitError,
+} from '../utils/customErrors';
 import tokenService from '../services/token.service';
 import User, { UserRole } from '../model/user.model';
 
@@ -189,7 +193,9 @@ const rateLimiter = (limit: number, windowMs: number) => {
         );
 
         if (validRequests.length >= limit) {
-          throw new UnauthorizedError('Rate limit exceeded');
+          // 429, not 401: clients treat a 401 as an expired token and start a
+          // refresh, so a rate limit must never look like an auth failure.
+          throw new RateLimitError('Rate limit exceeded');
         }
 
         requests.set(ip, [...validRequests, now]);
